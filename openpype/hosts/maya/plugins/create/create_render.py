@@ -429,11 +429,13 @@ class CreateRender(plugin.Creator):
             renderer (str): Renderer name.
 
         """
-        prefix = self._image_prefixes[renderer]
-        prefix = prefix.replace("{aov_separator}", self.aov_separator)
-        cmds.setAttr(self._image_prefix_nodes[renderer],
-                     prefix,
-                     type="string")
+        if renderer in self._image_prefixes and \
+                renderer in self._image_prefix_nodes:
+            prefix = self._image_prefixes[renderer]
+            prefix = prefix.replace("{aov_separator}", self.aov_separator)
+            cmds.setAttr(self._image_prefix_nodes[renderer],
+                         prefix,
+                         type="string")
 
         asset = get_asset()
 
