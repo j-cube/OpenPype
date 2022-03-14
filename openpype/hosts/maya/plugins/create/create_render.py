@@ -520,7 +520,7 @@ class CreateRender(plugin.Creator):
         node = nodes[0]
 
         # output
-        cmds.setAttr("{}.outputOptionsDefault", 2)
+        cmds.setAttr("{}.outputOptionsDefault".format(node), 2)
 
         # frame range
         cmds.setAttr("{}.startFrame".format(node),
