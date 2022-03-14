@@ -198,6 +198,9 @@ class CreateRender(plugin.Creator):
             # handle various renderman names
             if renderer.startswith('renderman'):
                 renderer = 'renderman'
+            # handle 3Delight names
+            elif renderer.find('3delight') != -1:
+                renderer = '3delight'
 
             self._set_default_renderer_settings(renderer)
         return self.instance
@@ -462,6 +465,8 @@ class CreateRender(plugin.Creator):
                 asset["data"].get("resolutionHeight"))
 
             self._set_global_output_settings()
+        if renderer == "3delight":
+            self._set_3delight_settings(asset)
 
     def _set_vray_settings(self, asset):
         # type: (dict) -> None
@@ -506,6 +511,22 @@ class CreateRender(plugin.Creator):
         cmds.setAttr(
             "{}.height".format(node),
             asset["data"].get("resolutionHeight"))
+
+    def _set_3delight_settings(self, asset):
+        # type: (dict) -> None
+        """Sets important settings for 3Delight."""
+        nodes = cmds.listConnections('dlRenderGlobals1.renderSettings')
+        assert len(nodes) == 1
+        node = nodes[0]
+
+        # output
+        cmds.setAttr("{}.outputOptionsDefault", 2)
+
+        # frame range
+        cmds.setAttr("{}.startFrame".format(node),
+                     asset["data"].get("frameStart"))
+        cmds.setAttr("{}.endFrame".format(node),
+                     asset["data"].get("frameEnd"))
 
     @staticmethod
     def _set_global_output_settings():
