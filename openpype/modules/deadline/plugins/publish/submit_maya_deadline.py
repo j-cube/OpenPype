@@ -440,7 +440,10 @@ class MayaSubmitDeadline(pyblish.api.InstancePlugin):
 
         output_filename_0 = filename_0
 
-        dirname = os.path.dirname(output_filename_0)
+        # this is needed because renderman handles directory and file
+        # prefixes separately
+        if self._instance.data["renderer"] == "renderman":
+            dirname = os.path.dirname(output_filename_0)
 
         # Create render folder ----------------------------------------------
         try:
@@ -515,6 +518,7 @@ class MayaSubmitDeadline(pyblish.api.InstancePlugin):
             "FTRACK_API_KEY",
             "FTRACK_API_USER",
             "FTRACK_SERVER",
+            "OPENPYPE_SG_USER",
             "AVALON_PROJECT",
             "AVALON_ASSET",
             "AVALON_TASK",
