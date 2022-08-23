@@ -470,7 +470,10 @@ def convert_for_ffmpeg(
         # Tell oiiotool which channels should be loaded
         # - other channels are not loaded to memory so helps to avoid memory
         #       leak issues
-        "-i:ch={}".format(input_channels_str), first_input_path,
+        # @TODO: the "-i:ch" currently has a bug with multipart images
+        # "-i:ch={}".format(input_channels_str), 
+        "-i",
+        first_input_path,
         # Tell oiiotool which channels should be put to top stack (and output)
         "--ch", channels_arg
     ])

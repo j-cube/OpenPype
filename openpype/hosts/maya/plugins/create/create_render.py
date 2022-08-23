@@ -79,7 +79,6 @@ class CreateRender(plugin.Creator):
         'renderman': 'rmanGlobals.imageFileFormat',
         'redshift': 'defaultRenderGlobals.imageFilePrefix',
         'mayahardware2': 'defaultRenderGlobals.imageFilePrefix',
-        '_3delight': 'defaultRenderGlobals.imageFilePrefix'
     }
 
     _image_prefixes = {
@@ -91,7 +90,6 @@ class CreateRender(plugin.Creator):
         'renderman': '<layer>_<aov>.<f4>.<ext>',
         'redshift': 'maya/<Scene>/<RenderLayer>/<RenderLayer>',  # noqa
         'mayahardware2': 'maya/<Scene>/<RenderLayer>/<RenderLayer>',  # noqa
-        '_3delight': 'maya/<Scene>/<RenderLayer>/<RenderLayer>'  # noqa
     }
 
     _aov_chars = {
@@ -179,31 +177,46 @@ class CreateRender(plugin.Creator):
                     ])
 
             cmds.setAttr("{}.machineList".format(self.instance), lock=True)
-            self._rs = renderSetup.instance()
-            layers = self._rs.getRenderLayers()
-            if use_selection:
-                print(">>> processing existing layers")
-                sets = []
-                for layer in layers:
-                    print("  - creating set for {}:{}".format(
-                        namespace, layer.name()))
-                    render_set = cmds.sets(
-                        n="{}:{}".format(namespace, layer.name()))
-                    sets.append(render_set)
-                cmds.sets(sets, forceElement=self.instance)
-
-            # if no render layers are present, create default one with
-            # asterisk selector
-            if not layers:
-                render_layer = self._rs.createRenderLayer('Main')
-                collection = render_layer.createCollection("defaultCollection")
-                collection.getSelector().setPattern('*')
 
             renderer = cmds.getAttr(
                 'defaultRenderGlobals.currentRenderer').lower()
             # handle various renderman names
             if renderer.startswith('renderman'):
                 renderer = 'renderman'
+
+            self._rs = renderSetup.instance()
+            layers = self._rs.getRenderLayers()
+            if renderer == "_3delight":
+                # With 3delight, we have dlRenderSettings, which need to be 
+                # assigned layers so they can be processed the same way. We
+                # first create renderLayers with the same name as the
+                # 3delight dlRenderSettings, so they can be us later 
+                # extracted.
+                dl_render_settings = cmds.ls(type="dlRenderSettings")
+                for dl_render_setting in dl_render_settings:
+                    render_layer_name = "{}_RL".format(dl_render_setting)
+                    render_layer = self._rs.createRenderLayer(render_layer_name)
+                    collection = render_layer.createCollection("defaultCollection")
+                    collection.getSelector().setPattern('*')
+            else:
+                if use_selection:
+                    self.log.info(">>> processing existing layers")
+                    sets = []
+                    for layer in layers:
+                        self.log.info("  - creating set for {}:{}".format(
+                            namespace, layer.name()))
+                        render_set = cmds.sets(
+                            n="{}:{}".format(namespace, layer.name()))
+                        sets.append(render_set)
+                    cmds.sets(sets, forceElement=self.instance)
+
+                # if no render layers are present, create default one with
+                # asterisk selector
+                if not layers:
+                    render_layer = self._rs.createRenderLayer('Main')
+                    collection = render_layer.createCollection("defaultCollection")
+                    collection.getSelector().setPattern('*')
+
 
             self._set_default_renderer_settings(renderer)
         return self.instance
@@ -409,11 +422,13 @@ class CreateRender(plugin.Creator):
             renderer (str): Renderer name.
 
         """
-        prefix = self._image_prefixes[renderer]
-        prefix = prefix.replace("{aov_separator}", self.aov_separator)
-        cmds.setAttr(self._image_prefix_nodes[renderer],
-                     prefix,
-                     type="string")
+
+        if renderer in self._image_prefixes:
+            prefix = self._image_prefixes[renderer]
+            prefix = prefix.replace("{aov_separator}", self.aov_separator)
+            cmds.setAttr(self._image_prefix_nodes[renderer],
+                         prefix,
+                         type="string")
 
         asset = get_asset()
 
@@ -498,27 +513,7 @@ class CreateRender(plugin.Creator):
 
     def _set_3delight_settings(self, asset):
         # type: (dict) -> None
-        """Sets important settings for 3Delight."""
-        nodes = cmds.listConnections(
-            'dlRenderGlobals1',
-            type='dlRenderSettings')
-        assert len(nodes) == 1
-        node = nodes[0]
-
-        # frame range
-        start_frame = int(cmds.playbackOptions(query=True,
-                                               animationStartTime=True))
-        end_frame = int(cmds.playbackOptions(query=True,
-                                             animationEndTime=True))
-
-        cmds.setAttr(
-            "{}.startFrame".format(node), start_frame)
-        cmds.setAttr(
-            "{}.endFrame".format(node), end_frame)
-
-        # outputOptionsDefault
-        cmds.setAttr(
-            "{}.outputOptionsDefault".format(node), 2)
+        """Sets important settings for 3Delight. """
 
         # resolution
         cmds.setAttr(
@@ -527,6 +522,64 @@ class CreateRender(plugin.Creator):
         cmds.setAttr(
             "defaultResolution.height",
             asset["data"].get("resolutionHeight"))
+        cmds.setAttr("defaultRenderGlobals.animation", 1)
+
+        # frame range
+        start_frame = int(cmds.playbackOptions(query=True,
+                                               animationStartTime=True))
+        end_frame = int(cmds.playbackOptions(query=True,
+                                             animationEndTime=True))
+
+        dl_render_settings = cmds.ls(type="dlRenderSettings")
+        assert len(dl_render_settings) >= 1
+        for dl_render_setting in dl_render_settings:
+            cmds.setAttr(
+                "{}.startFrame".format(dl_render_setting), start_frame)
+            cmds.setAttr(
+                "{}.endFrame".format(dl_render_setting), end_frame)
+
+            # outputOptionsDefault
+            cmds.setAttr(
+                "{}.outputOptionsDefault".format(dl_render_setting), 2)
+
+        """
+        3delight doesn't use maya's render layers to indicate what to render,
+        instead, it uses dlRenderSettings as specified by the connection to
+        dlRenderGlobals1, of which there is only one. Since this is not the 
+        "mayaonic" way, we must insert a pre-render MEL into maya's 
+        "defaultRenderGlobals.preMel", which will help us work this out. We
+        wouldn't this this ... "hack" if deadline allowed us to insert commands
+        into its MayaBatch stuff, or, if it allowed setting up renderers in a
+        sensible way.
+        """
+
+        preMelToInsert = """/*--*3dl_v1*--*/
+currentTime -e `getAttr ("defaultRenderGlobals.startFrame")`;
+string $ls[] = `listConnections renderLayerManager.renderLayerId`;
+for ($i = 0 ; $i<size($ls) ; $i++) 
+{
+    string $cl = $ls[$i];
+    if (!startsWith($cl, "rs_"))
+        continue;
+    if (!endsWith($cl, "_RL"))
+        continue;
+    string $_3l = substring($cl, 4, size($cl)-3);
+    if (getAttr($cl+".renderable"))
+    {
+        string $rg = "dlRenderGlobals1.renderSettings";
+        DL_disconnectNode( $rg );
+        DL_connectNodeToMessagePlug( $_3l, $rg );
+    }
+}
+/*--**--*/"""
+        preMel = cmds.getAttr("defaultRenderGlobals.preMel");
+        self.log.info("This is our current 'preMel':[{}]".format(preMel))
+        if "/*--*3dl_v1*--*/" in preMel:
+            self.log.info("  - we already have the correct preMel, leave it")
+        else:
+            self.log.info("  - we need to insert our own preMel")
+            mel = "{};{}".format(preMel, preMelToInsert)
+            cmds.setAttr("defaultRenderGlobals.preMel", mel, type="string")
 
     @staticmethod
     def _set_global_output_settings():

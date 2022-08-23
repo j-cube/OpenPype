@@ -47,6 +47,10 @@ class ValidateRenderSingleCamera(pyblish.api.InstancePlugin):
         # handle various renderman names
         if renderer.startswith('renderman'):
             renderer = 'renderman'
+        elif renderer == '_3delight':
+            # 3delight handles it's own camera differently, in its own
+            # dlRenderSettings object.
+            return
         file_prefix = cmds.getAttr(ImagePrefixes[renderer])
 
         if len(cameras) > 1:

@@ -258,6 +258,23 @@ def get_renderer_variables(renderlayer, root):
         extension = ext_mapping[
             cmds.getAttr("redshiftOptions.imageFormat")
         ]
+    elif renderer == "_3delight":
+        nodes = cmds.listConnections(
+            'dlRenderGlobals1',
+            type='dlRenderSettings')
+        assert len(nodes) == 1
+        node = nodes[0]
+        prefix_attr = "{}.layerDefaultFilename".format(node)
+        extension = cmds.getAttr("{}.layerDefaultDriver".format(node))
+
+        filename_0 = cmds.getAttr(prefix_attr)
+        # // Result: 3delight/<scene>/image/<scene>_<pass>.#.<ext> // 
+
+        filename_0 = re.sub('<scene>', scene, filename_0, flags=re.IGNORECASE)  # noqa: E501
+        filename_0 = re.sub('<pass>', node, filename_0, flags=re.IGNORECASE)  # noqa: E501
+        filename_0 = re.sub('<aov>', node, filename_0, flags=re.IGNORECASE)  # noqa: E501
+        filename_0 = re.sub('<ext>', extension, filename_0, flags=re.IGNORECASE)  # noqa: E501
+        filename_0 = filename_0.replace("#", "#" * int(padding))
     else:
         # Get the extension, getAttr defaultRenderGlobals.imageFormat
         # returns an index number.
@@ -859,6 +876,9 @@ class MayaSubmitDeadline(pyblish.api.InstancePlugin):
             rman_version = cfg().build_info.version()  # type: str
             if int(rman_version.split(".")[0]) > 22:
                 renderer = "renderman22"
+        if self._instance.data["renderer"] == "_3delight":
+            renderer = "3delightNSI"
+        self.log.info("Renderer we will use is: {}".format(renderer))
 
         plugin_info = {
             "SceneFile": data["filepath"],

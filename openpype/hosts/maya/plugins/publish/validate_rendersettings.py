@@ -99,6 +99,8 @@ class ValidateRenderSettings(pyblish.api.InstancePlugin):
         renderer = instance.data['renderer']
         layer = instance.data['setMembers']
         cameras = instance.data.get("cameras", [])
+        if renderer not in cls.ImagePrefixes:
+            return invalid
 
         # Get the node attributes for current renderer
         attrs = lib.RENDER_ATTRS.get(renderer, lib.RENDER_ATTRS['default'])
