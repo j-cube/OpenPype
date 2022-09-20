@@ -20,22 +20,24 @@ class ValidateMvLookContents(pyblish.api.InstancePlugin):
     optional = True
 
     # These intents get enforced checks, other ones get warnings.
-    enforced_intents = ['-', 'Final']
+    enforced_intents = ['final'] # @TODO: How about <Not Set>?
 
     def process(self, instance):
-        intent = instance.context.data['intent']['value']
-        publishMipMap = instance.data["publishMipMap"]
-        enforced = True
-        if intent in self.enforced_intents:
-            self.log.info("This validation will be enforced: '{}'"
-                          .format(intent))
-        else:
-            enforced = False
-            self.log.info("This validation will NOT be enforced: '{}'"
-                          .format(intent))
-
         if not instance[:]:
             raise RuntimeError("Instance is empty")
+
+        intent = instance.context.data.get('intent', {})
+        intent_value = intent.get('value', '<No Intent>')
+        enforced = True
+        if intent_value.lower() in self.enforced_intents:
+            self.log.info("This validation will be enforced: '{}'"
+                          .format(intent_value))
+        else:
+            enforced = False
+            self.log.warn("This validation will NOT be enforced: '{}'"
+                          .format(intent_value))
+
+        publishMipMap = instance.data["publishMipMap"]
 
         invalid = set()
 

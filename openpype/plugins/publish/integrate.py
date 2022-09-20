@@ -123,7 +123,6 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
                 "staticMesh",
                 "skeletalMesh",
                 "mvLook",
-                "mvUsd",
                 "mvUsdComposition",
                 "mvUsdOverride",
                 "simpleUnrealTexture"
