@@ -17,6 +17,7 @@ from openpype.hosts.maya.api.lib import (
 from openpype.hosts.maya.api.pipeline import containerise
 from openpype.client import get_representations, get_representation_by_id
 
+
 class MultiverseUsdOverLoader(load.LoaderPlugin):
     """Reference file"""
 
@@ -37,19 +38,8 @@ class MultiverseUsdOverLoader(load.LoaderPlugin):
     ]
 
     def load(self, context, name=None, namespace=None, options=None):
-
-        import traceback
-        self.log.warning("MultiverseUsdOverLoader:load: >>>>>")
-        for l in traceback.format_stack(): self.log.warning("    - {}".format(l))
-        self.log.warning("MultiverseUsdOverLoader:load: <<<<<<")
-
         asset = context['asset']['name']
-        self.log.warning("Namespace: {}".format(namespace))
-        self.log.warning("         : {}".format(namespace))
 
-        # Create the shape
-        cmds.loadPlugin("MultiverseForMaya", quiet=True)
-        import multiverse
         current_usd = cmds.ls(selection=True,
                               type="mvUsdCompoundShape",
                               dag=True,
@@ -60,38 +50,33 @@ class MultiverseUsdOverLoader(load.LoaderPlugin):
                            "".format(current_usd))
             return
 
-        self.log.warning("Adding to compound '{}' the layer '{}'"
-            "".format(current_usd, self.fname))
+        # Make sure we can load the plugin
+        cmds.loadPlugin("MultiverseForMaya", quiet=True)
+        import multiverse
+
         nodes = current_usd
         with maintained_selection():
             multiverse.AddUsdCompoundAssetPath(current_usd[0], self.fname)
 
         namespace = current_usd[0].split("|")[1].split(":")[0]
 
-        self.log.warning("containerise: \nname='{}', \nnamespace='{}', \nnodes='{}', \ncontext='{}', \nloader='{}', "
-            "".format(name,namespace,nodes,context,self.__class__.__name__))
         container = containerise(
             name=name,
             namespace=namespace,
             nodes=nodes,
             context=context,
             loader=self.__class__.__name__)
-        
-        cmds.addAttr(container, longName="mvUsdCompoundShape", niceName="mvUsdCompoundShape", dataType="string")
-        cmds.setAttr(container + ".mvUsdCompoundShape", current_usd[0], type="string")
-        
+
+        cmds.addAttr(container, longName="mvUsdCompoundShape",
+                     niceName="mvUsdCompoundShape", dataType="string")
+        cmds.setAttr(container + ".mvUsdCompoundShape",
+                     current_usd[0], type="string")
+
         return container
 
     def update(self, container, representation):
         # type: (dict, dict) -> None
         """Update container with specified representation."""
-
-        import traceback
-        self.log.warning("MultiverseUsdOverLoader:update: >>>>>")
-        for l in traceback.format_stack(): self.log.warning("    - {}".format(l))
-        self.log.warning("MultiverseUsdOverLoader:update: <<<<<<")
-        self.log.warning("MultiverseUsdOverLoader:update: NEW: \ncontainer={}'{}'\nrepresentation={}'{}'"
-            "".format(type(container),container,type(representation),representation))
 
         cmds.loadPlugin("MultiverseForMaya", quiet=True)
         import multiverse
@@ -109,17 +94,14 @@ class MultiverseUsdOverLoader(load.LoaderPlugin):
         project_name = representation["context"]["project"]["name"]
         prev_representation_id = cmds.getAttr("{}.representation".format(node))
         prev_representation = get_representation_by_id(project_name,
-                                                  prev_representation_id)
+                                                       prev_representation_id)
         prev_path = os.path.normpath(prev_representation["data"]["path"])
 
         path = get_representation_path(representation)
-        
+
         for shape in shapes:
             asset_paths = multiverse.GetUsdCompoundAssetPaths(shape)
             asset_paths = [os.path.normpath(p) for p in asset_paths]
-
-            self.log.warning("  :prev_path='{}'\n  :asset_paths='{}'"
-                    "".format(prev_path,asset_paths))
 
             assert asset_paths.count(prev_path) == 1, \
                 "Couldn't find matching path (or too many)"
@@ -133,11 +115,6 @@ class MultiverseUsdOverLoader(load.LoaderPlugin):
         mel.eval('refreshEditorTemplates;')
 
     def switch(self, container, representation):
-        import traceback
-        self.log.warning("MultiverseUsdOverLoader:switch: >>>>>")
-        for l in traceback.format_stack(): self.log.warning("    - {}".format(l))
-        self.log.warning("MultiverseUsdOverLoader:switch: <<<<<<")
-
         self.update(container, representation)
 
     def remove(self, container):

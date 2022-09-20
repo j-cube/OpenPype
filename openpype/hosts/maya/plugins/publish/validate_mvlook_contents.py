@@ -20,7 +20,7 @@ class ValidateMvLookContents(pyblish.api.InstancePlugin):
     optional = True
 
     # These intents get enforced checks, other ones get warnings.
-    enforced_intents = ['final'] # @TODO: How about <Not Set>?
+    enforced_intents = ['final']  # @TODO: How about <Not Set>?
 
     def process(self, instance):
         if not instance[:]:
